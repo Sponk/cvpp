@@ -111,3 +111,19 @@ void cvpp::ImageLoader::saveFloat(const std::string& file, unsigned int w, unsig
 {
 	save<float>(file, data.data(), w, h, c);
 }
+
+void cvpp::ImageLoader::saveUChar(const std::string& file, unsigned int w, unsigned int h, unsigned int c, const unsigned char* data)
+{
+	save<unsigned char>(file, data, w, h, c);
+}
+
+void cvpp::ImageLoader::saveUShort(const std::string& file, unsigned int w, unsigned int h, unsigned int c, const unsigned short* data)
+{
+	save<unsigned short>(file, data, w, h, c);
+}
+
+void cvpp::ImageLoader::saveFloat(const std::string& file, unsigned int w, unsigned int h, unsigned int c, const float* data)
+{
+	save<float>(file, data, w, h, c);
+}
+

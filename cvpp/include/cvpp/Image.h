@@ -19,6 +19,10 @@ void loadFloat(const std::string& file, unsigned int& w, unsigned int& h, unsign
 void saveUChar(const std::string& file, unsigned int w, unsigned int h, unsigned int c, const std::vector<unsigned char>& data);
 void saveUShort(const std::string& file, unsigned int w, unsigned int h, unsigned int c, const std::vector<unsigned short>& data);
 void saveFloat(const std::string& file, unsigned int w, unsigned int h, unsigned int c, const std::vector<float>& data);
+
+void saveUChar(const std::string& file, unsigned int w, unsigned int h, unsigned int c, const unsigned char* data);
+void saveUShort(const std::string& file, unsigned int w, unsigned int h, unsigned int c, const unsigned short* data);
+void saveFloat(const std::string& file, unsigned int w, unsigned int h, unsigned int c, const float* data);
 }
 
 template<typename T>

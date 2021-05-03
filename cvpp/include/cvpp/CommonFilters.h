@@ -8,7 +8,7 @@ namespace cvpp
 
 const Eigen::Vector3f SimpleEdgeDetector(0.5f, 0, -0.5f);
 
-auto SobelFilterH()
+Eigen::Matrix3f SobelFilterH()
 {
 	Eigen::Matrix3f mtx;
 	mtx <<	-1, 0, 1,
@@ -18,12 +18,12 @@ auto SobelFilterH()
 	return mtx;
 }
 
-auto SobelFilterV()
+Eigen::Matrix3f SobelFilterV()
 {
 	return SobelFilterH().transpose();
 }
 
-auto ScharrFilterH()
+Eigen::Matrix3f ScharrFilterH()
 {
 	Eigen::Matrix3f mtx;
 	mtx <<	3,  0, -3,
@@ -33,7 +33,7 @@ auto ScharrFilterH()
 	return mtx;
 }
 
-auto ScharrFilterV()
+Eigen::Matrix3f ScharrFilterV()
 {
 	return ScharrFilterH().transpose();
 }

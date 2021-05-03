@@ -5,7 +5,9 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-if(${CMAKE_BUILD_TYPE} STREQUAL "Release")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+
+if("${CMAKE_BUILD_TYPE}" STREQUAL "Release" AND NO_SYCL)
 	include(CheckIPOSupported)
 	check_ipo_supported(RESULT IPO_SUPPORT OUTPUT error)
 
@@ -17,7 +19,7 @@ if(${CMAKE_BUILD_TYPE} STREQUAL "Release")
 	endif()
 endif()
 
-add_subdirectory(src)
+add_subdirectory(cvpp)
 
 if(NOT NO_TEST)
 	enable_testing()

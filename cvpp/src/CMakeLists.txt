@@ -1,7 +1,6 @@
 file(GLOB SRC *.cpp)
 
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
-
 find_package(OpenMP)
 if(OpenMP_CXX_FOUND)
 	set(OPENMP_FLAGS "OpenMP::OpenMP_CXX")
