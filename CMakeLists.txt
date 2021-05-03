@@ -20,6 +20,7 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL "Release" AND NO_SYCL)
 endif()
 
 add_subdirectory(cvpp)
+add_subdirectory(cvsycl)
 
 if(NOT NO_TEST)
 	enable_testing()
