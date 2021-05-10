@@ -2,26 +2,56 @@
 file(GLOB SRC src/*.cpp)
 file(GLOB_RECURSE INCLUDE include/*.h)
 
-set(CMAKE_PREFIX_PATH /opt/hipSYCL/lib/cmake ${CMAKE_PREFIX_PATH})
-#set(HIPSYCL_PLATFORM "tbb" CACHE STRING "" FORCE)
-#set(HIPSYCL_PLATFORM "rocm" CACHE STRING "" FORCE)
-#set(HIPSYCL_GPU_ARCH "gfx900" CACHE STRING "" FORCE)
-#set(HIPSYCL_TARGETS "hip" CACHE STRING "" FORCE)
+option(USE_TRISYCLE "Enforce the triSYCL fallback over hipSYCL or ComputeCpp if they are found." OFF)
+option(USE_COMPUTECPP "Enforce the ComputeCpp hipSYCL or triSYCL." OFF)
 
-# set(HIPSYCL_TARGETS "omp;hip:gfx900,gfx906" CACHE STRING "" FORCE)
-set(HIPSYCL_TARGETS "omp;hip:gfx900" CACHE STRING "" FORCE)
+set(SYCL_FOUND FALSE)
 
-find_package(hipSYCL CONFIG)
-set(SYCL_FOUND ${hipSYCL_FOUND})
+if(NOT USE_TRISYCL AND NOT USE_COMPUTECPP)
+	set(CMAKE_PREFIX_PATH /opt/hipSYCL/lib/cmake ${CMAKE_PREFIX_PATH})
+	set(HIPSYCL_TARGETS "omp;hip:gfx900" CACHE STRING "" FORCE)
 
-#find_package(triSYCL REQUIRED)
-#set(SYCL_FOUND ${triSYCL_FOUND})
+	find_package(hipSYCL CONFIG)
+	set(SYCL_FOUND ${hipSYCL_FOUND})
+elseif(NOT USE_TRISYCL AND USE_COMPUTECPP)
+	set(ComputeCpp_DIR ${CMAKE_CURRENT_SOURCE_DIR}/ComputeCpp)
+	set(SYCL_LANGUAGE_VERSION "2020")
+
+	find_package(ComputeCpp)
+	set(SYCL_FOUND ${ComputeCpp_FOUND})
+
+	set(CXX_STANDARD_REQUIRED 20)
+	set(CXX_STANDARD 20)
+endif()
+
+if(NOT ${SYCL_FOUND} AND ${USE_TRISYCLE} AND NOT ${USE_COMPUTECPP})
+	include(FetchContent)
+	
+	message("-- Fetching triSYCL")
+	FetchContent_Declare(triSYCL
+		GIT_REPOSITORY https://github.com/triSYCL/triSYCL.git
+		GIT_TAG        origin/master
+	)
+	
+	FetchContent_GetProperties(triSYCL)
+	if(NOT triSYCL_POPULATED)
+		FetchContent_Populate(triSYCL)
+	endif()
+
+	function(add_sycl_to_target T targetName)
+		target_include_directories(${targetName} PUBLIC ${triSYCL_SOURCE_DIR}/include)
+	endfunction()
+
+	set(SYCL_FOUND TRUE)
+endif()
 
 if(${SYCL_FOUND})
 	add_library(cvsycl ${SRC} ${INCLUDE})
 	target_link_libraries(cvsycl PUBLIC cvpp)
-	target_include_directories(cvsycl PUBLIC include /opt/hipSYCL/include/ /opt/rocm/hip/include/ /opt/hipSYCL/include/hipSYCL/contrib/)
-	add_compile_definitions(PUBLIC EIGEN_DONT_VECTORIZE=1) ## So Eigen can be used on the GPU without issues!
+	target_include_directories(cvsycl PUBLIC include)
+
+	# Doesn't seem to be necessary with current hipSYCL anymore
+	#	add_compile_definitions(PUBLIC EIGEN_DONT_VECTORIZE=1) ## So Eigen can be used on the GPU without issues!
 
 	add_sycl_to_target(TARGET cvsycl SOURCES ${SRC})
 

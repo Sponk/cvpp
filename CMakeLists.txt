@@ -19,8 +19,23 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL "Release" AND NO_SYCL)
 	endif()
 endif()
 
+option(ENABLE_SANITIZER "Enables address sanitizer" OFF)
+
+if(${ENABLE_SANITIZER})
+	set(SANITIZE_FLAGS "-fsanitize=address")
+endif()
+
+if(${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --save-temps ${SANITIZE_FLAGS}")
+	set(CMAKE_EXE_LINKER_FLAGS "${SANITIZE_FLAGS}")
+elseif(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --save-temps ${SANITIZE_FLAGS}")
+	set(CMAKE_EXE_LINKER_FLAGS "${SANITIZE_FLAGS}")
+endif()
+
 add_subdirectory(cvpp)
 add_subdirectory(cvsycl)
+add_subdirectory(cvcl)
 
 if(NOT NO_TEST)
 	enable_testing()
