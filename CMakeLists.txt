@@ -33,11 +33,11 @@ elseif(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
 	set(CMAKE_EXE_LINKER_FLAGS "${SANITIZE_FLAGS}")
 endif()
 
-add_subdirectory(cvpp)
-add_subdirectory(cvsycl)
-add_subdirectory(cvcl)
-
 if(NOT NO_TEST)
 	enable_testing()
 	add_subdirectory(test)
 endif()
+
+add_subdirectory(cvpp)
+add_subdirectory(cvsycl)
+add_subdirectory(cvcl)
