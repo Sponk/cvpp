@@ -76,19 +76,6 @@ Image<Eigen::Matrix2f> HessianTensor(Image<T>& in, cl::sycl::queue& q)
 		});
 	});
 
-#if 0
-	#pragma omp parallel for
-	for(int y = 0; y < in.getHeight(); y++)
-	{
-		const size_t yoff = y*in.getWidth();
-		for(int x = 0; x < in.getWidth(); x++)
-		{
-			const size_t off = yoff+x;
-			output[off] <<	ColorToFloat(Dx[off]), ColorToFloat(Dxy[off]),
-							ColorToFloat(Dyx[off]), ColorToFloat(Dy[off]);
-		}
-	}
-#endif
 	return output;
 }
 
