@@ -35,4 +35,8 @@ build
 build-*
 .vscode
 
+test/data
 test/data/test1_*
+
+# We are not allowed to distribute the ComputeCpp SDK
+cvsycl/ComputeCpp
