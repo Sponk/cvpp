@@ -63,7 +63,7 @@ if(${SYCL_FOUND})
 		target_link_libraries(cvsyclTest PUBLIC gtest gmock gtest_main cvsycl)
 
 		add_sycl_to_target(TARGET cvsyclTest SOURCES ${TEST_SRC})
-		gtest_discover_tests(cvsyclTest WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/test/data)
+		gtest_discover_tests(cvsyclTest WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/test/data/sycl)
 	endif()
 
 	if(NOT NO_BENCHMARK)
