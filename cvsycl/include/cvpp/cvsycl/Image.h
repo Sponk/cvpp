@@ -5,7 +5,6 @@
 #include <cvpp/Image.h>
 
 #include <type_traits>
-
 namespace cvsycl
 {
 
@@ -40,7 +39,6 @@ public:
 	}
 
 	~Image() = default;
-
 	Image<T>& operator=(const Image<T>& src) = default;
 
 	Image<T>& operator=(const cvpp::Image<T>& src)
@@ -51,6 +49,19 @@ public:
 		m_components = src.getComponents();
 
 		return *this;
+	}
+
+	operator cvpp::Image<T>()
+	{
+		cvpp::Image<T> out(m_width, m_height, m_components);
+
+		auto acc = m_data.template get_access<cl::sycl::access::mode::read>();
+		std::vector<T>& buf = out.getData();
+
+		for(size_t i = 0; i < buf.size(); i++)
+			buf[i] = acc[i];
+
+		return out;
 	}
 
 	void save(const std::string& path)
@@ -82,34 +93,33 @@ public:
 	unsigned int getHeight() const { return m_height; }
 	unsigned int getComponents() const { return m_components; }
 
-	#define MAKE_OPERATOR(name, op) \
-	template<typename S, typename Q> class name##_kernel; \
-	template<typename S> \
-	Image<T> name(Image<S>& b, cl::sycl::queue& q) \
-	{ \
-		assert(getWidth() == b.getWidth() && getHeight() == b.getHeight() && getComponents() == b.getComponents()); \
-		Image<T> out(getWidth(), getHeight(), getComponents()); \
- \
-		using namespace cl::sycl; \
- \
-		q.submit([&](cl::sycl::handler& cgh) { \
-			auto outAcc = out.getBuffer()->template get_access<access::mode::discard_write>(cgh); \
-			auto aAcc = m_data.template get_access<access::mode::read>(cgh); \
-			auto bAcc = out.getBuffer()->template get_access<access::mode::read>(cgh); \
- \
-			cgh.parallel_for<name##_kernel<S, T>>(cl::sycl::range<1>(getWidth()*getHeight()*getComponents()), [=](cl::sycl::id<1> p) \
-			{ \
-				outAcc[p] = cvpp::FloatToColor<T>(cvpp::ColorToFloat(aAcc[p]) op cvpp::ColorToFloat(bAcc[p])); \
-			}); \
-		}); \
-		return out; \
-	}
+	#define MAKE_OPERATOR(name, op)                                                                                                            \
+		template <typename S, typename Q>                                                                                                      \
+		class name##_kernel;                                                                                                                   \
+		template <typename S>                                                                                                                  \
+		Image<T> name(Image<S> &b, cl::sycl::queue &q)                                                                                         \
+		{                                                                                                                                      \
+			assert(getWidth() == b.getWidth() && getHeight() == b.getHeight() && getComponents() == b.getComponents());                        \
+			Image<T> out(getWidth(), getHeight(), getComponents());                                                                            \
+																																			\
+			using namespace cl::sycl;                                                                                                          \
+																																			\
+			q.submit([&](cl::sycl::handler &cgh) {                                                                                             \
+				auto outAcc = out.getBuffer()->template get_access<access::mode::discard_write>(cgh);                                          \
+				auto aAcc = m_data.template get_access<access::mode::read>(cgh);                                                               \
+				auto bAcc = out.getBuffer()->template get_access<access::mode::read>(cgh);                                                     \
+																																			\
+				cgh.parallel_for<name##_kernel<S, T>>(cl::sycl::range<1>(getWidth() * getHeight() * getComponents()), [=](cl::sycl::id<1> p) { \
+					outAcc[p] = cvpp::FloatToColor<T>(cvpp::ColorToFloat(aAcc[p]) op cvpp::ColorToFloat(bAcc[p]));                             \
+				});                                                                                                                            \
+			});                                                                                                                                \
+			return out;                                                                                                                        \
+		}
 
-	MAKE_OPERATOR(add, +)
-	MAKE_OPERATOR(sub, -)
-	MAKE_OPERATOR(mul, *)
-	MAKE_OPERATOR(div, /)
-
+		MAKE_OPERATOR(add, +)
+		MAKE_OPERATOR(sub, -)
+		MAKE_OPERATOR(mul, *)
+		MAKE_OPERATOR(div, /)
 	#undef MAKE_OPERATOR
 
 	template<typename S> class neg_kernel;
@@ -166,7 +176,7 @@ Image<Out> ConvertType(Image<In>& img, cl::sycl::queue& queue)
 	using namespace cl::sycl;
 
 	queue.submit([&](cl::sycl::handler& cgh) {
-		auto outAcc = out.getBuffer()->template get_access<access::mode::write>(cgh);
+		auto outAcc = out.getBuffer()->template get_access<access::mode::discard_write>(cgh);
 		auto inAcc = img.getBuffer()->template get_access<access::mode::read>(cgh);
 
 		cgh.parallel_for<convert_type_kernel<In, Out>>(cl::sycl::range<1>(img.getWidth()*img.getHeight()), [=](cl::sycl::id<1> p)
@@ -195,7 +205,7 @@ Image<T> MakeGrayscale(Image<T>& img, const float weights[4], cl::sycl::queue& q
 	Image<T> out(img.getWidth(), img.getHeight(), 1);
 	
 	using namespace cl::sycl;
-	auto weightBuf = buffer<float>(weights, 4);
+	auto weightBuf = buffer<float>(weights, range<1>(4));
 
 	queue.submit([&](cl::sycl::handler& cgh) {
 		auto outData = out.getBuffer()->template get_access<access::mode::discard_write>(cgh);
@@ -210,7 +220,7 @@ Image<T> MakeGrayscale(Image<T>& img, const float weights[4], cl::sycl::queue& q
 				sum += weightAcc[i] * cvpp::ColorToFloat<T>(inData[idx*comps + i]);
 			}
 
-			outData[idx] = cvpp::FloatToColor<T>(sum / comps);
+			outData[idx] = cvpp::FloatToColor<T>(sum / (weightAcc[0] + weightAcc[1] + weightAcc[2] + weightAcc[3]));
 		});
 	});
 

@@ -9,21 +9,24 @@
 namespace cvsycl
 {
 
-template<typename A, typename B, typename C> class convolute2d_kernel;
+template<typename A, typename B> class convolute2d_kernel;
 
-template<typename Sampler, typename T, typename K>
-Image<T> Convolute2D(Image<T>& in, const K& kernel, unsigned int size, cl::sycl::queue& queue)
+template<typename Sampler, typename T>
+Image<T> Convolute2D(Image<T>& in, const float* kernel, unsigned int size, cl::sycl::queue& queue)
 {
 	Image<T> out(in.getWidth(), in.getHeight(), in.getComponents());
 	const int halfSize = size/2;
 
 	using namespace cl::sycl;
 
+	auto kernelBuf = buffer<float>(kernel, cl::sycl::range<1>(size*size));
+
 	queue.submit([&](cl::sycl::handler& cgh) {
 		Sampler sampler(cgh, in);
 		auto outAcc = out.getBuffer()->template get_access<access::mode::discard_write>(cgh);
-	
-		cgh.parallel_for<convolute2d_kernel<Sampler, T, K>>(cl::sycl::range<2>(in.getWidth(), in.getHeight()), [=](cl::sycl::id<2> p)
+		auto kernelAcc = kernelBuf.template get_access<access::mode::read, access::target::constant_buffer>(cgh);
+
+		cgh.parallel_for<convolute2d_kernel<Sampler, T>>(cl::sycl::range<2>(in.getWidth(), in.getHeight()), [=](cl::sycl::id<2> p)
 		{
 			const size_t xoff = (sampler.getWidth()*p[1] + p[0]) * sampler.getComponents();
 			cl::sycl::float4 sum(0, 0, 0, 0);
@@ -32,7 +35,7 @@ Image<T> Convolute2D(Image<T>& in, const K& kernel, unsigned int size, cl::sycl:
 				for(int ky = -halfSize; ky <= halfSize; ky++)
 				{
 					const auto s = sampler.sample((int) p[0] + kx, (int) p[1] + ky);
-					sum += kernel(ky + halfSize, kx + halfSize) * s;
+					sum += kernelAcc[(ky + halfSize)*size + kx + halfSize] * s;
 				}
 			}
 
@@ -53,7 +56,7 @@ Image<T> Convolute2D(Image<T>& sampler, const Eigen::Matrix<float, W, H>& kernel
 {
 	static_assert(W == H, "A kernel needs to be square!");
 	static_assert(W % 2 != 0, "A kernel needs an odd size!");
-	return Convolute2D<Sampler>(sampler, kernel, W, queue);
+	return Convolute2D<Sampler>(sampler, kernel.data(), W, queue);
 }
 
 #if 0
