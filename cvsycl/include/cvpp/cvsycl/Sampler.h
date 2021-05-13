@@ -15,13 +15,13 @@ public:
 		m_width(img->getWidth()),
 		m_height(img->getHeight()),
 		m_components(img->getComponents()),
-		m_accessor(img->getBuffer()->template get_access<cl::sycl::access::mode::read_write>(cgh)) {}
+		m_accessor(img->getBuffer()->template get_access<cl::sycl::access::mode::read>(cgh)) {}
 
 	SamplerView(cl::sycl::handler& cgh, Image<T>& img):
 		m_width(img.getWidth()),
 		m_height(img.getHeight()),
 		m_components(img.getComponents()),
-		m_accessor(img.getBuffer()->template get_access<cl::sycl::access::mode::read_write>(cgh)) {}
+		m_accessor(img.getBuffer()->template get_access<cl::sycl::access::mode::read>(cgh)) {}
 	
 	T const* get(unsigned int x, unsigned int y) const
 	{
@@ -105,7 +105,7 @@ public:
 protected:
 
 	// TODO Only requires 'read'!
-	cl::sycl::accessor<T, 1, cl::sycl::access::mode::read_write> m_accessor;
+	cl::sycl::accessor<T, 1, cl::sycl::access::mode::read> m_accessor;
 	unsigned int m_width = 0, m_height = 0, m_components = 0;
 };
 
