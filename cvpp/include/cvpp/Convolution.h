@@ -9,10 +9,10 @@ namespace cvpp
 {
 
 template<typename T, typename K>
-Image<T> Convolute2D(const SamplerView<T>& sampler, const K& kernel, unsigned int size)
+CPUImage<T> Convolute2D(const SamplerView<T>& sampler, const K& kernel, unsigned int size)
 {
-	const Image<T>& in = *sampler.getImage();
-	Image<T> out(in.getWidth(), in.getHeight(), in.getComponents());
+	const CPUImage<T>& in = *sampler.getImage();
+	CPUImage<T> out(in.getWidth(), in.getHeight(), in.getComponents());
 	const int halfSize = size/2;
 
 #pragma omp parallel for
@@ -43,10 +43,10 @@ Image<T> Convolute2D(const SamplerView<T>& sampler, const K& kernel, unsigned in
 }
 
 template<int Stride = 1, typename T, typename Fn, typename Finisher>
-Image<T> NonLinearConv2D(const SamplerView<T>& sampler, unsigned int size, Fn fn, Finisher fin)
+CPUImage<T> NonLinearConv2D(const SamplerView<T>& sampler, unsigned int size, Fn fn, Finisher fin)
 {
-	const Image<T>& in = *sampler.getImage();
-	Image<T> out(in.getWidth(), in.getHeight(), in.getComponents());
+	const CPUImage<T>& in = *sampler.getImage();
+	CPUImage<T> out(in.getWidth(), in.getHeight(), in.getComponents());
 	const int halfSize = size/2;
 	const int stride = (Stride == -1 ? size : Stride);
 
@@ -80,20 +80,20 @@ Image<T> NonLinearConv2D(const SamplerView<T>& sampler, unsigned int size, Fn fn
 }
 
 template<int Stride = 1, typename T, typename Fn>
-Image<T> NonLinearConv2D(const SamplerView<T>& sampler, unsigned int size, Fn fn)
+CPUImage<T> NonLinearConv2D(const SamplerView<T>& sampler, unsigned int size, Fn fn)
 {
 	return NonLinearConv2D<Stride>(sampler, size, fn, [](auto, auto, auto){});
 }
 
 template<typename T, int Size>
-Image<T> Convolute2D(const SamplerView<T>& sampler, const Eigen::Matrix<float, Size, Size>& kernel)
+CPUImage<T> Convolute2D(const SamplerView<T>& sampler, const Eigen::Matrix<float, Size, Size>& kernel)
 {
 	static_assert(Size % 2 != 0, "A kernel needs an odd size!");
 	return Convolute2D(sampler, kernel, Size);
 }
 
 template<typename T>
-Image<T> Convolute2D(const SamplerView<T>& sampler, const Eigen::MatrixXf& kernel)
+CPUImage<T> Convolute2D(const SamplerView<T>& sampler, const Eigen::MatrixXf& kernel)
 {
 	assert(kernel.rows() == kernel.cols() && "Wrong size of kernel!");
 	return Convolute2D(sampler, kernel, kernel.rows());
@@ -106,10 +106,10 @@ enum CONVOLUTION_TYPE
 };
 
 template<CONVOLUTION_TYPE Dir = HORIZONTAL, typename T, typename K>
-Image<T> Convolute1D(const SamplerView<T>& sampler, const K& kernel, unsigned int size)
+CPUImage<T> Convolute1D(const SamplerView<T>& sampler, const K& kernel, unsigned int size)
 {
-	const Image<T>& in = *sampler.getImage();
-	Image<T> out(in.getWidth(), in.getHeight(), in.getComponents());
+	const CPUImage<T>& in = *sampler.getImage();
+	CPUImage<T> out(in.getWidth(), in.getHeight(), in.getComponents());
 	const int halfSize = size/2;
 
 #pragma omp parallel for
@@ -144,13 +144,13 @@ Image<T> Convolute1D(const SamplerView<T>& sampler, const K& kernel, unsigned in
 }
 
 template<CONVOLUTION_TYPE Dir = HORIZONTAL, typename T, int Rows, int Cols>
-Image<T> Convolute1D(const SamplerView<T>& sampler, const Eigen::Matrix<float, Rows, Cols>& kernel)
+CPUImage<T> Convolute1D(const SamplerView<T>& sampler, const Eigen::Matrix<float, Rows, Cols>& kernel)
 {
 	return Convolute1D<Dir>(sampler, kernel, Rows);
 }
 
 template<CONVOLUTION_TYPE Dir = HORIZONTAL, typename T>
-Image<T> Convolute1D(const SamplerView<T>& sampler, const Eigen::VectorXf& kernel)
+CPUImage<T> Convolute1D(const SamplerView<T>& sampler, const Eigen::VectorXf& kernel)
 {
 	return Convolute1D<Dir>(sampler, kernel, kernel.rows());
 }

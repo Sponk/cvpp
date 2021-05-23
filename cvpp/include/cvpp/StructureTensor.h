@@ -9,7 +9,7 @@ namespace cvpp
 {
 
 template<typename T>
-Image<Eigen::Matrix2f> StructureTensor(const Image<T>& in)
+CPUImage<Eigen::Matrix2f> StructureTensor(const CPUImage<T>& in)
 {
 	auto gray = MakeGrayscale(ConvertType<T, float>(in));
 	auto sampler = ClampView(gray);
@@ -28,7 +28,7 @@ Image<Eigen::Matrix2f> StructureTensor(const Image<T>& in)
 	Sy = ConvoluteSeparable(ClampView(Sy), GaussFilter<3>(1.0f));
 	Sxy = ConvoluteSeparable(ClampView(Sxy), GaussFilter<3>(1.0f));
 
-	Image<Eigen::Matrix2f> output(in.getWidth(), in.getHeight(), 1);
+	CPUImage<Eigen::Matrix2f> output(in.getWidth(), in.getHeight(), 1);
 	#pragma omp parallel for
 	for(int y = 0; y < in.getHeight(); y++)
 	{
@@ -46,7 +46,7 @@ Image<Eigen::Matrix2f> StructureTensor(const Image<T>& in)
 
 
 template<typename T>
-Image<Eigen::Matrix2f> HessianTensor(const Image<T>& in)
+CPUImage<Eigen::Matrix2f> HessianTensor(const CPUImage<T>& in)
 {
 	auto gray = MakeGrayscale(ConvertType<T, float>(in));
 	auto sampler = ClampView(gray);
@@ -58,7 +58,7 @@ Image<Eigen::Matrix2f> HessianTensor(const Image<T>& in)
 	auto Dxy = Convolute2D(sampler, LaplaceFilterXY());
 	auto Dyx = Convolute2D(sampler, LaplaceFilterXY().transpose());
 
-	Image<Eigen::Matrix2f> output(in.getWidth(), in.getHeight(), 1);
+	CPUImage<Eigen::Matrix2f> output(in.getWidth(), in.getHeight(), 1);
 	#pragma omp parallel for
 	for(int y = 0; y < in.getHeight(); y++)
 	{

@@ -11,10 +11,10 @@ template<typename T>
 class SamplerView
 {
 public:
-	SamplerView(Image<T>* img):
+	SamplerView(CPUImage<T>* img):
 		m_image(img) {}
 
-	SamplerView(const Image<T>& img):
+	SamplerView(const CPUImage<T>& img):
 		m_image(&img) {}
 
 	virtual Eigen::Vector4f sample(float u, float v) const
@@ -60,29 +60,72 @@ public:
 		return Eigen::Vector2i(x, y);
 	}
 
-	const Image<T>* getImage() const { return m_image; }
+	const CPUImage<T>* getImage() const { return m_image; }
 
 protected:
-	const Image<T>* m_image = nullptr;
+	const CPUImage<T>* m_image = nullptr;
 };
 
 template<typename T>
 class ClampView : public SamplerView<T>
 {
 public:
-	ClampView(const Image<T>* img):
+	ClampView(const CPUImage<T>* img):
 		SamplerView<T>(img) {}
 
-	ClampView(const Image<T>& img):
+	ClampView(const CPUImage<T>& img):
 		SamplerView<T>(img) {}
 
-	Eigen::Vector4f sample(float u, float v) const final
+	Eigen::Vector4f sample(float u, float v) const
 	{
 		u = std::clamp(u, 0.0f, 1.0f);
 		v = std::clamp(v, 0.0f, 1.0f);
 
 		return SamplerView<T>::sample(u, v);
 	}
+};
+
+
+template<typename T>
+class GaussView : public SamplerView<T>
+{
+public:
+	GaussView(const CPUImage<T>* img):
+		SamplerView<T>(img) {}
+
+	GaussView(const CPUImage<T>& img):
+		SamplerView<T>(img) {}
+
+	using SamplerView<T>::texel;
+	Eigen::Vector4f sample(float u, float v) const
+	{
+		const int w = SamplerView<T>::m_image->getWidth() - 1;
+		const int h = SamplerView<T>::m_image->getHeight() - 1;
+
+		const int x = u*w;
+		const int y = v*h;
+
+		const int sz = 3*m_sigma;
+
+		const float sigmaSq = m_sigma*m_sigma;
+		const float twoSigmaSq = sigmaSq + sigmaSq;
+
+		Eigen::Vector4f sum;
+		for(int dx = -sz; dx <= sz; dx++)
+			for(int dy = -sz; dy <= sz; dy++)
+			{
+				const float weight = (1.0f/std::sqrt(2.0f*M_PI*sigmaSq)) * std::exp(-((dx*dx) + (dy*dy))/twoSigmaSq);
+				sum += weight * texel(std::clamp(x + dx, 0, w), std::clamp(y + dy, 0, h));
+			}
+
+		sum /= sz;
+		return sum;
+	}
+
+	void setSigma(float s) { m_sigma = s; }
+
+private:
+	float m_sigma = 1.0f;
 };
 
 template<typename T>
@@ -112,10 +155,10 @@ template<typename T>
 class RepeatView : public SamplerView<T>
 {
 public:
-	RepeatView(const Image<T>* img):
+	RepeatView(const CPUImage<T>* img):
 		SamplerView<T>(img) {}
 
-	RepeatView(const Image<T>& img):
+	RepeatView(const CPUImage<T>& img):
 		SamplerView<T>(img) {}
 
 	Eigen::Vector4f sample(float u, float v) const final
@@ -130,10 +173,10 @@ template<typename T>
 class BlackEdgeView : public SamplerView<T>
 {
 public:
-	BlackEdgeView(const Image<T>* img):
+	BlackEdgeView(const CPUImage<T>* img):
 		SamplerView<T>(img) {}
 
-	BlackEdgeView(const Image<T>& img):
+	BlackEdgeView(const CPUImage<T>& img):
 		SamplerView<T>(img) {}
 
 	Eigen::Vector4f sample(float u, float v) const final

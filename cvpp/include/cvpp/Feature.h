@@ -12,7 +12,7 @@ struct Feature
 };
 
 template<typename T>
-void MarkFeatures(Image<T>& img, const Eigen::Vector4f& color, const std::vector<Feature>& features)
+void MarkFeatures(CPUImage<T>& img, const Eigen::Vector4f& color, const std::vector<Feature>& features)
 {
 	#pragma omp parallel for
 	for(int i = 0; i < features.size(); i++)

@@ -40,7 +40,7 @@ T FloatToColor(float v)
 	if constexpr(std::is_same<T, float>::value)
 		return v;
 
-	return T(v * std::numeric_limits<T>::max());
+	return T(std::clamp(v, 0.0f, 1.0f) * std::numeric_limits<T>::max());
 }
 
 template<typename From, typename To>
@@ -52,24 +52,38 @@ To ColorToColor(const From& v)
 	return FloatToColor<To>(ColorToFloat<From>(v));
 }
 
-template<typename T>
 class Image
 {
 public:
-	Image() = default;
-	~Image() = default;
-	Image(Image<T>&&) = default;
-	Image(const Image<T>&) = default;
 
-	Image<T>& operator=(const Image<T>&) = default;
-	Image<T>& operator=(Image<T>&&) = default;
+	enum
+	{
+		UCHAR,
+		USHORT,
+		FLOAT,
+		OTHER
+	};
 
-	Image(const std::string& path)
+};
+
+template<typename T>
+class CPUImage : public Image
+{
+public:
+	CPUImage() = default;
+	~CPUImage() = default;
+	CPUImage(CPUImage<T>&&) = default;
+	CPUImage(const CPUImage<T>&) = default;
+
+	CPUImage<T>& operator=(const CPUImage<T>&) = default;
+	CPUImage<T>& operator=(CPUImage<T>&&) = default;
+
+	CPUImage(const std::string& path)
 	{
 		load(path);
 	}
 
-	Image(unsigned int w, unsigned int h, unsigned int c):
+	CPUImage(unsigned int w, unsigned int h, unsigned int c):
 		m_width(w),
 		m_height(h),
 		m_components(c)
@@ -130,10 +144,10 @@ public:
 	const T& operator[](size_t idx) const { return m_data[idx]; }
 
 	template<typename S>
-	Image<T> operator+(const Image<S>& b) const
+	CPUImage<T> operator+(const CPUImage<S>& b) const
 	{
 		assert(getWidth() == b.getWidth() && getHeight() == b.getHeight() && getComponents() == b.getComponents());
-		Image<T> out(getWidth(), getHeight(), getComponents());
+		CPUImage<T> out(getWidth(), getHeight(), getComponents());
 
 		#pragma omp parallel for
 		for(int i = 0; i < m_data.size(); i++)
@@ -146,10 +160,10 @@ public:
 	}
 
 	template<typename S>
-	Image<T> operator-(const Image<S>& b) const
+	CPUImage<T> operator-(const CPUImage<S>& b) const
 	{
 		assert(getWidth() == b.getWidth() && getHeight() == b.getHeight() && getComponents() == b.getComponents());
-		Image<S> out(getWidth(), getHeight(), getComponents());
+		CPUImage<S> out(getWidth(), getHeight(), getComponents());
 
 		#pragma omp parallel for
 		for(int i = 0; i < m_data.size(); i++)
@@ -161,10 +175,10 @@ public:
 	}
 
 	template<typename S>
-	Image<T> operator*(const Image<S>& b) const
+	CPUImage<T> operator*(const CPUImage<S>& b) const
 	{
 		assert(getWidth() == b.getWidth() && getHeight() == b.getHeight() && getComponents() == b.getComponents());
-		Image<S> out(getWidth(), getHeight(), getComponents());
+		CPUImage<S> out(getWidth(), getHeight(), getComponents());
 
 		#pragma omp parallel for
 		for(int i = 0; i < m_data.size(); i++)
@@ -177,10 +191,10 @@ public:
 	}
 
 	template<typename S>
-	Image<T> operator/(const Image<S>& b) const
+	CPUImage<T> operator/(const CPUImage<S>& b) const
 	{
 		assert(getWidth() == b.getWidth() && getHeight() == b.getHeight() && getComponents() == b.getComponents());
-		Image<S> out(getWidth(), getHeight(), getComponents());
+		CPUImage<S> out(getWidth(), getHeight(), getComponents());
 
 		#pragma omp parallel for
 		for(int i = 0; i < m_data.size(); i++)
@@ -191,10 +205,10 @@ public:
 		return out;
 	}
 
-	Image<T> operator-() const
+	CPUImage<T> operator-() const
 	{
 		static_assert(std::is_signed_v<T>, "Negative values are undefined for this image!");
-		Image<T> out(getWidth(), getHeight(), getComponents());
+		CPUImage<T> out(getWidth(), getHeight(), getComponents());
 
 		#pragma omp parallel for
 		for(int i = 0; i < m_data.size(); i++)
@@ -210,7 +224,7 @@ public:
 	{
 		using P = std::invoke_result_t<Fn, T>;
 
-		Image<P> result(m_width, m_height, m_components);
+		CPUImage<P> result(m_width, m_height, m_components);
 		#pragma omp parallel for
 		for(int i = 0; i < m_data.size(); i++)
 			result[i] = fn(m_data[i]);
@@ -226,10 +240,10 @@ private:
 };
 
 template<typename In, typename Out>
-Image<Out> ConvertType(const Image<In>& img)
+CPUImage<Out> ConvertType(const CPUImage<In>& img)
 {
 	const unsigned int comps = img.getComponents();
-	Image<Out> out(img.getWidth(), img.getHeight(), comps);
+	CPUImage<Out> out(img.getWidth(), img.getHeight(), comps);
 
 	const auto& inData = img.getData();
 	auto& outData = out.getData();
@@ -252,10 +266,10 @@ Image<Out> ConvertType(const Image<In>& img)
 }
 
 template<typename T>
-Image<T> MakeGrayscale(const Image<T>& img, const float weights[4])
+CPUImage<T> MakeGrayscale(const CPUImage<T>& img, const float weights[4])
 {
 	const unsigned int comps = img.getComponents();
-	Image<T> out(img.getWidth(), img.getHeight(), 1);
+	CPUImage<T> out(img.getWidth(), img.getHeight(), 1);
 
 	const auto& inData = img.getData();
 	auto& outData = out.getData();
@@ -276,16 +290,16 @@ Image<T> MakeGrayscale(const Image<T>& img, const float weights[4])
 }
 
 template<typename T>
-Image<T> MakeGrayscale(const Image<T>& img)
+CPUImage<T> MakeGrayscale(const CPUImage<T>& img)
 {
 	const float w[] = {1.0f, 1.0f, 1.0f, 1.0f};
 	return MakeGrayscale(img, w);
 }
 
 template<typename T>
-Image<T> MakeRGB(const Image<T>& img)
+CPUImage<T> MakeRGB(const CPUImage<T>& img)
 {
-	Image<T> out(img.getWidth(), img.getHeight(), 3);
+	CPUImage<T> out(img.getWidth(), img.getHeight(), 3);
 
 #pragma omp parallel for
 	for(int y = 0; y < img.getHeight(); y++)
@@ -305,9 +319,34 @@ Image<T> MakeRGB(const Image<T>& img)
 }
 
 template<typename T>
-Image<T> Sum(const Image<T>& r1, const Image<T>& r2)
+CPUImage<T> MakeRGBA(const CPUImage<T>& img)
 {
-	Image<T> out(r1.getWidth(), r1.getHeight(), r1.getComponents());
+	CPUImage<T> out(img.getWidth(), img.getHeight(), 4);
+
+#pragma omp parallel for
+	for(int y = 0; y < img.getHeight(); y++)
+	{
+		const size_t yoff = y*img.getWidth();
+		for(int x = 0; x < img.getWidth(); x++)
+		{
+			const size_t off = (yoff+x);
+			const size_t imgOff = off*img.getComponents();
+			const size_t rgbOff = off*4;
+			
+			for(int c = 0; c < img.getComponents(); c++)
+				out[rgbOff + c] = img[imgOff + c];
+			
+			out[rgbOff + 3] = FloatToColor<T>(1.0f);
+		}
+	}
+
+	return out;
+}
+
+template<typename T>
+CPUImage<T> Sum(const CPUImage<T>& r1, const CPUImage<T>& r2)
+{
+	CPUImage<T> out(r1.getWidth(), r1.getHeight(), r1.getComponents());
 	for(unsigned int idx = 0; idx < out.getData().size(); idx++)
 	{
 		out.getData()[idx] = r1.getData()[idx] + r2.getData()[idx];
