@@ -24,7 +24,7 @@ elseif(NOT USE_TRISYCL AND USE_COMPUTECPP)
 	set(CXX_STANDARD 20)
 endif()
 
-if(NOT ${SYCL_FOUND} AND ${USE_TRISYCLE} AND NOT ${USE_COMPUTECPP})
+if(NOT ${SYCL_FOUND} AND NOT ${USE_COMPUTECPP})
 	include(FetchContent)
 	
 	message("-- Fetching triSYCL")
@@ -38,11 +38,24 @@ if(NOT ${SYCL_FOUND} AND ${USE_TRISYCLE} AND NOT ${USE_COMPUTECPP})
 		FetchContent_Populate(triSYCL)
 	endif()
 
-	function(add_sycl_to_target T targetName)
-		target_include_directories(${targetName} PUBLIC ${triSYCL_SOURCE_DIR}/include)
-	endfunction()
+	## Fetch content seems to be broken on Apple...
+	if(APPLE)
+		set(triSYCL_SOURCE_DIR ${CMAKE_BINARY_DIR}/_deps/trisycl-src)
+		include(${triSYCL_SOURCE_DIR}/cmake/FindtriSYCL.cmake)
+	else()
+		include(${triSYCL_SOURCE_DIR}/cmake/FindtriSYCL.cmake)
+	endif()
+
+	message("-- Fetched triSYCL: ${triSYCL_SOURCE_DIR}")
+
+
+	#function(add_sycl_to_target T targetName)
+	#	message(${triSYCL_SOURCE_DIR}/include)
+	#	target_include_directories(${targetName} PUBLIC ${triSYCL_SOURCE_DIR}/include)
+	#endfunction()
 
 	set(SYCL_FOUND TRUE)
+	set(USE_TRISYCL TRUE)
 endif()
 
 if(${SYCL_FOUND})
@@ -53,7 +66,11 @@ if(${SYCL_FOUND})
 	# Doesn't seem to be necessary with current hipSYCL anymore
 	#	add_compile_definitions(PUBLIC EIGEN_DONT_VECTORIZE=1) ## So Eigen can be used on the GPU without issues!
 
-	add_sycl_to_target(TARGET cvsycl SOURCES ${SRC})
+	if(NOT USE_TRISYCL)
+		add_sycl_to_target(TARGET cvsycl SOURCES ${SRC})
+	else()
+		add_sycl_to_target(cvsycl)
+	endif()
 
 	if(NOT NO_TEST)
 		file(GLOB TEST_SRC test/*.cpp)
@@ -61,7 +78,13 @@ if(${SYCL_FOUND})
 		add_executable(cvsyclTest ${TEST_SRC})
 		target_link_libraries(cvsyclTest PUBLIC gtest gmock gtest_main cvsycl)
 
-		add_sycl_to_target(TARGET cvsyclTest SOURCES ${TEST_SRC})
+
+		if(NOT USE_TRISYCL)
+			add_sycl_to_target(TARGET cvsyclTest SOURCES ${TEST_SRC})
+		else()
+			add_sycl_to_target(cvsyclTest)
+		endif()
+
 		gtest_discover_tests(cvsyclTest WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/test/data/sycl)
 	endif()
 
@@ -70,7 +93,11 @@ if(${SYCL_FOUND})
 		add_executable(cvsyclBench benchmark/main.cpp)
 		target_link_libraries(cvsyclBench PUBLIC benchmark cvsycl)
 
-		add_sycl_to_target(TARGET cvsyclBench SOURCES benchmark/main.cpp)
+		if(NOT USE_TRISYCL)
+			add_sycl_to_target(TARGET cvsyclBench SOURCES benchmark/main.cpp)
+		else()
+			add_sycl_to_target(cvsyclBench)
+		endif()
 	endif()
 
 else()
