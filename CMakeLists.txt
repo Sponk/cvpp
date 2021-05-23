@@ -34,8 +34,8 @@ elseif(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
 endif()
 
 if(NOT NO_TEST)
+	include(GoogleTest)
 	enable_testing()
-	add_subdirectory(test)
 endif()
 
 add_subdirectory(cvpp)

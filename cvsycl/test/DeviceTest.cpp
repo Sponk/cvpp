@@ -68,7 +68,7 @@ TEST(Detector, Harris)
 {
 	cl::sycl::queue q(cl::sycl::default_selector{});
 
-	cvpp::Image<uint8_t> img(TESTIMG);
+	cvpp::CPUImage<uint8_t> img(TESTIMG);
 	cvsycl::Image<uint8_t> gpuImg(img);
 
 	std::vector<cvpp::Feature> features;

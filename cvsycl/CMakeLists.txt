@@ -56,7 +56,6 @@ if(${SYCL_FOUND})
 	add_sycl_to_target(TARGET cvsycl SOURCES ${SRC})
 
 	if(NOT NO_TEST)
-		include(GoogleTest)
 		file(GLOB TEST_SRC test/*.cpp)
 
 		add_executable(cvsyclTest ${TEST_SRC})

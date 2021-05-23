@@ -21,9 +21,9 @@ public:
 		{}
 
 	Image(const std::string& file):
-		Image(cvpp::Image<T>(file)) {}
+		Image(cvpp::CPUImage<T>(file)) {}
 
-	Image(const cvpp::Image<T>& src):
+	Image(const cvpp::CPUImage<T>& src):
 		m_data(cl::sycl::buffer<T>(src.getData().data(), cl::sycl::range<1>(src.getData().size()))),
 		m_width(src.getWidth()),
 		m_height(src.getHeight()),
@@ -41,7 +41,7 @@ public:
 	~Image() = default;
 	Image<T>& operator=(const Image<T>& src) = default;
 
-	Image<T>& operator=(const cvpp::Image<T>& src)
+	Image<T>& operator=(const cvpp::CPUImage<T>& src)
 	{
 		m_data = cl::sycl::buffer<T>(src.getData().data(), cl::sycl::range<1>(src.getData().size()));
 		m_width = src.getWidth();
@@ -51,9 +51,9 @@ public:
 		return *this;
 	}
 
-	operator cvpp::Image<T>()
+	operator cvpp::CPUImage<T>()
 	{
-		cvpp::Image<T> out(m_width, m_height, m_components);
+		cvpp::CPUImage<T> out(m_width, m_height, m_components);
 
 		auto acc = m_data.template get_access<cl::sycl::access::mode::read>();
 		std::vector<T>& buf = out.getData();

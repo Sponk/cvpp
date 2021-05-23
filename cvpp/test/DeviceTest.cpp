@@ -12,7 +12,7 @@
 
 TEST(Image, LoadSave)
 {
-	cvpp::Image<uint8_t> img(TESTIMG);
+	cvpp::CPUImage<uint8_t> img(TESTIMG);
 
 	img.save("ImageLoadSave.png");
 	img.save("ImageLoadSave.jpg");
@@ -23,7 +23,7 @@ TEST(Image, LoadSave)
 
 TEST(Image, ConvertType)
 {
-	cvpp::Image<uint8_t> img(TESTIMG);
+	cvpp::CPUImage<uint8_t> img(TESTIMG);
 
 	auto shortImg = ConvertType<uint8_t, float>(img);
 	shortImg.save("ImageConvertType.hdr");
@@ -31,7 +31,7 @@ TEST(Image, ConvertType)
 
 TEST(Sampler, ClampSampler)
 {
-	cvpp::Image<uint8_t> img(TESTIMG);
+	cvpp::CPUImage<uint8_t> img(TESTIMG);
 	auto sampler = cvpp::ClampView(img);
 
 	auto c1 = sampler.sample(0.0, 0.0);
@@ -50,9 +50,21 @@ TEST(Utils, Mod)
 	EXPECT_EQ(cvpp::mod(-15, 20), cvpp::mod(5, 20));
 }
 
+TEST(Sampler, GaussSampler)
+{
+	cvpp::CPUImage<uint8_t> img(TESTIMG);
+	cvpp::GaussView sampler(img);
+	sampler.setSigma(10);
+
+	auto k = Eigen::Vector3f(0.0f, 1.0f, 0.0f);
+	auto Dx = Convolute1D<cvpp::HORIZONTAL>(sampler, k);
+
+	Dx.save("SamplerGaussSampler.png");
+}
+
 TEST(Convolution, Conv1D)
 {
-	cvpp::Image<uint8_t> img(TESTIMG);
+	cvpp::CPUImage<uint8_t> img(TESTIMG);
 	auto grey = cvpp::MakeGrayscale(img);
 	cvpp::ClampView sampler(grey);
 
@@ -68,7 +80,7 @@ TEST(Convolution, Conv1D)
 
 TEST(Convolution, Conv2D)
 {
-	cvpp::Image<uint8_t> img(TESTIMG);
+	cvpp::CPUImage<uint8_t> img(TESTIMG);
 	cvpp::ClampView sampler(img);
 
 	Eigen::MatrixXf mtx(7, 7);
@@ -81,7 +93,7 @@ TEST(Convolution, Conv2D)
 
 TEST(Convolution, Conv2DMat3)
 {
-	cvpp::Image<uint8_t> img(TESTIMG);
+	cvpp::CPUImage<uint8_t> img(TESTIMG);
 	cvpp::ClampView sampler(img);
 
 	Eigen::Matrix3f mtx;
@@ -94,7 +106,7 @@ TEST(Convolution, Conv2DMat3)
 
 TEST(Convolution, ConvSep)
 {
-	cvpp::Image<uint8_t> img(TESTIMG);
+	cvpp::CPUImage<uint8_t> img(TESTIMG);
 	cvpp::ClampView sampler(img);
 
 	auto out = cvpp::ConvoluteSeparable(sampler, cvpp::BoxFilter<5>());
@@ -104,7 +116,7 @@ TEST(Convolution, ConvSep)
 
 TEST(Convolution, GaussFilter)
 {
-	cvpp::Image<uint8_t> img(TESTIMG);
+	cvpp::CPUImage<uint8_t> img(TESTIMG);
 	cvpp::ClampView sampler(img);
 
 	auto out = cvpp::ConvoluteSeparable(sampler, cvpp::GaussFilter<11>(2.0f));
@@ -114,7 +126,7 @@ TEST(Convolution, GaussFilter)
 
 TEST(Convolution, StackBlur)
 {
-	cvpp::Image<uint8_t> img(TESTIMG);
+	cvpp::CPUImage<uint8_t> img(TESTIMG);
 	cvpp::ClampView sampler(img);
 
 	constexpr int sz = 15;
@@ -125,7 +137,7 @@ TEST(Convolution, StackBlur)
 
 TEST(Convolution, BlurAndEdge)
 {
-	cvpp::Image<uint8_t> img(TESTIMG);
+	cvpp::CPUImage<uint8_t> img(TESTIMG);
 	cvpp::ClampView sampler(img);
 
 	img = cvpp::MakeGrayscale(img);
@@ -137,7 +149,7 @@ TEST(Convolution, BlurAndEdge)
 
 TEST(Convert, Grayscale)
 {
-	cvpp::Image<uint8_t> img(TESTIMG);
+	cvpp::CPUImage<uint8_t> img(TESTIMG);
 	auto gr = cvpp::MakeGrayscale(img);
 
 	gr.save("ConvertGrayscale.png");
@@ -145,7 +157,7 @@ TEST(Convert, Grayscale)
 
 TEST(Convolution, Sobel)
 {
-	cvpp::Image<uint8_t> img(TESTIMG);
+	cvpp::CPUImage<uint8_t> img(TESTIMG);
 	auto gr = cvpp::MakeGrayscale(img);
 	gr = cvpp::Convolute2D(cvpp::ClampView(gr), cvpp::SobelFilterH());
 	gr.save("ConvolutionSobelH.png");
@@ -156,7 +168,7 @@ TEST(Convolution, Sobel)
 
 TEST(Structure, StructureTensor)
 {
-	cvpp::Image<uint8_t> img(TESTIMG);
+	cvpp::CPUImage<uint8_t> img(TESTIMG);
 	auto tensor = cvpp::StructureTensor(img);
 
 	float max = 0.0f;
@@ -185,19 +197,22 @@ TEST(Structure, StructureTensor)
 
 TEST(Detector, Harris)
 {
-	cvpp::Image<uint8_t> img(TESTIMG);
+	cvpp::CPUImage<uint8_t> img(TESTIMG);
 
 	std::vector<cvpp::Feature> features;
-	cvpp::HarrisDetector(img, 11, 1.1f, features);
+	cvpp::HarrisDetector(img, 11, 1.0f, features);
 
 	cvpp::MarkFeatures(img, Eigen::Vector4f(1, 0, 1, 1), features);
 	img.save("DetectorHarris.png");
 	std::cout << "FEATURES: " << features.size() << std::endl;
+
+	for(int i = 0; i < 10 && i < features.size(); i++)
+		std::cout << features[i].x << ", " << features[i].y << " -> " << features[i].scale << std::endl;
 }
 
 TEST(Detector, Hessian)
 {
-	cvpp::Image<uint8_t> img(TESTIMG);
+	cvpp::CPUImage<uint8_t> img(TESTIMG);
 
 	std::vector<cvpp::Feature> features;
 	cvpp::HessianDetector(img, 21, 0.5f, features);
@@ -205,11 +220,14 @@ TEST(Detector, Hessian)
 	cvpp::MarkFeatures(img, Eigen::Vector4f(1, 0, 1, 1), features);
 	img.save("DetectorHessian.png");
 	std::cout << "FEATURES: " << features.size() << std::endl;
+
+	for(int i = 0; i < 10 && i < features.size(); i++)
+		std::cout << features[i].x << ", " << features[i].y << " -> " << features[i].scale << std::endl;
 }
 
 TEST(Convolution, Laplace)
 {
-	cvpp::Image<uint8_t> img(TESTIMG);
+	cvpp::CPUImage<uint8_t> img(TESTIMG);
 	auto gr = cvpp::MakeGrayscale(img);
 
 	cvpp::ClampView sampler(gr);
@@ -221,4 +239,11 @@ TEST(Convolution, Laplace)
 	Dx.save("ConvolutionLaplaceX.png");
 	Dy.save("ConvolutionLaplaceY.png");
 	Dxy.save("ConvolutionLaplaceXY.png");
+}
+
+#include <cvpp/Device.h>
+
+TEST(Device, CPU)
+{
+	
 }

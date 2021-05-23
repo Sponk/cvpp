@@ -2,6 +2,8 @@
 #include <cvpp/cvsycl/Image.h>
 #include <cvpp/cvsycl/Convolution.h>
 #include <cvpp/cvsycl/StructureTensor.h>
+#include <cvpp/cvsycl/HarrisDetector.h>
+
 #include <cvpp/CommonFilters.h>
 
 using namespace cvpp;
@@ -95,5 +97,21 @@ BENCHMARK_DEFINE_F(SYCLFixture, StructureTensor)(benchmark::State& state)
 	}
 }
 BENCHMARK_REGISTER_F(SYCLFixture, StructureTensor)->Unit(benchmark::kMillisecond);
+
+BENCHMARK_DEFINE_F(SYCLFixture, HarrisDetector)(benchmark::State& state)
+{
+	auto& imgRef = *img;
+	std::vector<cvpp::Feature> features;
+	features.reserve(10000);
+
+	for(auto _ : state)
+	{
+		cvsycl::HarrisDetector(imgRef, 11, 1.1f, features, q);
+		q.wait();
+
+		features.clear();
+	}
+}
+BENCHMARK_REGISTER_F(SYCLFixture, HarrisDetector)->Unit(benchmark::kMillisecond);
 
 BENCHMARK_MAIN();
