@@ -12,16 +12,18 @@ class SamplerView
 {
 public:
 	SamplerView(cl::sycl::handler& cgh, Image<T>* img):
+		m_accessor(img->getBuffer()->template get_access<cl::sycl::access::mode::read>(cgh)),
 		m_width(img->getWidth()),
 		m_height(img->getHeight()),
-		m_components(img->getComponents()),
-		m_accessor(img->getBuffer()->template get_access<cl::sycl::access::mode::read>(cgh)) {}
+		m_components(img->getComponents())
+		{}
 
 	SamplerView(cl::sycl::handler& cgh, Image<T>& img):
+		m_accessor(img.getBuffer()->template get_access<cl::sycl::access::mode::read>(cgh)),
 		m_width(img.getWidth()),
 		m_height(img.getHeight()),
-		m_components(img.getComponents()),
-		m_accessor(img.getBuffer()->template get_access<cl::sycl::access::mode::read>(cgh)) {}
+		m_components(img.getComponents())
+		{}
 	
 	T const* get(unsigned int x, unsigned int y) const
 	{

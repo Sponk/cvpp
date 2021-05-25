@@ -12,23 +12,26 @@ template<typename T>
 class Image
 {
 public:
-	
 	Image(unsigned int w, unsigned int h, unsigned int c):
+		m_data(cl::sycl::buffer<T>(cl::sycl::range<1>(w*h*c))),
+		m_hostData(w*h*c),
 		m_width(w),
 		m_height(h),
-		m_components(c),
-		m_data(cl::sycl::buffer<T>(cl::sycl::range<1>(w*h*c)))
+		m_components(c)
 		{}
 
 	Image(const std::string& file):
 		Image(cvpp::CPUImage<T>(file)) {}
 
 	Image(const cvpp::CPUImage<T>& src):
-		m_data(cl::sycl::buffer<T>(src.getData().data(), cl::sycl::range<1>(src.getData().size()))),
+		m_data(cl::sycl::buffer<T>(cl::sycl::range<1>(0))),
+		m_hostData(src.getData()),
 		m_width(src.getWidth()),
 		m_height(src.getHeight()),
 		m_components(src.getComponents())
-	{}
+	{
+		m_data = cl::sycl::buffer<T>(m_hostData.data(), cl::sycl::range<1>(m_hostData.size()));
+	}
 
 	Image(Image<T>&&) = default;
 
@@ -107,12 +110,12 @@ public:
 			q.submit([&](cl::sycl::handler &cgh) {                                                                                             \
 				auto outAcc = out.getBuffer()->template get_access<access::mode::discard_write>(cgh);                                          \
 				auto aAcc = m_data.template get_access<access::mode::read>(cgh);                                                               \
-				auto bAcc = out.getBuffer()->template get_access<access::mode::read>(cgh);                                                     \
+				auto bAcc = b.getBuffer()->template get_access<access::mode::read>(cgh);                                                     \
 																																			\
 				cgh.parallel_for<name##_kernel<S, T>>(cl::sycl::range<1>(getWidth() * getHeight() * getComponents()), [=](cl::sycl::id<1> p) { \
 					outAcc[p] = cvpp::FloatToColor<T>(cvpp::ColorToFloat(aAcc[p]) op cvpp::ColorToFloat(bAcc[p]));                             \
 				});                                                                                                                            \
-			});                                                                                                                                \
+			}).wait();                                                                                                                         \
 			return out;                                                                                                                        \
 		}
 
@@ -138,7 +141,7 @@ public:
 			{
 				outAcc[p] = cvpp::FloatToColor<T>(-cvpp::ColorToFloat(aAcc[p]));
 			});
-		});
+		}).wait();
 
 		return out;
 	}
@@ -156,13 +159,14 @@ public:
 			{
 				outAcc[p] = fn(inAcc[p]);
 			});
-		});
+		}).wait();
 
 		return result;
 	}
 
 private:
 	cl::sycl::buffer<T> m_data;
+	std::vector<T> m_hostData;
 	unsigned int m_width = 0, m_height = 0, m_components = 0;
 };
 
@@ -192,37 +196,36 @@ Image<Out> ConvertType(Image<In>& img, cl::sycl::queue& queue)
 					outAcc[idxIn + i] = static_cast<Out>(val*std::numeric_limits<Out>::max());
 			}
 		});
-	});
+	}).wait();
 
 	return out;
 }
 
 template<typename T> class make_grayscale_kernel;
 template<typename T>
-Image<T> MakeGrayscale(Image<T>& img, const float weights[4], cl::sycl::queue& queue)
+Image<T> MakeGrayscale(Image<T>& img, const cl::sycl::float4 weights, cl::sycl::queue& queue)
 {
 	const unsigned int comps = img.getComponents();
 	Image<T> out(img.getWidth(), img.getHeight(), 1);
 	
 	using namespace cl::sycl;
-	auto weightBuf = buffer<float>(weights, range<1>(4));
 
 	queue.submit([&](cl::sycl::handler& cgh) {
 		auto outData = out.getBuffer()->template get_access<access::mode::discard_write>(cgh);
 		auto inData = img.getBuffer()->template get_access<access::mode::read>(cgh);
-		auto weightAcc = weightBuf.get_access<access::mode::read>(cgh);
+		//auto weightAcc = weightBuf.get_access<access::mode::read, access::target::constant_buffer>(cgh);
 
 		cgh.parallel_for<make_grayscale_kernel<T>>(cl::sycl::range<1>(img.getWidth()*img.getHeight()), [=](cl::sycl::id<1> idx)
 		{
 			float sum = 0.0f;
 			for(int i = 0; i < comps; i++)
 			{
-				sum += weightAcc[i] * cvpp::ColorToFloat<T>(inData[idx*comps + i]);
+				sum += weights[i] * cvpp::ColorToFloat<T>(inData[idx*comps + i]);
 			}
 
-			outData[idx] = cvpp::FloatToColor<T>(sum / (weightAcc[0] + weightAcc[1] + weightAcc[2] + weightAcc[3]));
+			outData[idx] = cvpp::FloatToColor<T>(sum / (weights[0] + weights[1] + weights[2] + weights[3]));
 		});
-	});
+	}).wait();
 
 	return out;
 }
@@ -230,7 +233,7 @@ Image<T> MakeGrayscale(Image<T>& img, const float weights[4], cl::sycl::queue& q
 template<typename T>
 Image<T> MakeGrayscale(Image<T>& img, cl::sycl::queue& queue)
 {
-	const float w[] = {1.0f, 1.0f, 1.0f, 1.0f};
+	const cl::sycl::float4 w {1.0f, 1.0f, 1.0f, img.getComponents() >= 4 ? 1.0f : 0.0f};
 	return MakeGrayscale(img, w, queue);
 }
 

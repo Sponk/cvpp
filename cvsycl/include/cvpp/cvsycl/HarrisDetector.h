@@ -114,7 +114,7 @@ void HarrisDetector(Image<T>& in, unsigned int patchSize, float threshold, std::
 				const float c = b;
 				const float d = cvpp::ColorToFloat(SyAcc[off]);
 
-				outAcc[off] = (a*d - b*c)/(a+d);
+				outAcc[off] = (a*d - b*c)/(a + d);
 			});
 		});
 	}

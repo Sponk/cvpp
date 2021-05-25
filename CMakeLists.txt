@@ -7,7 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
-if("${CMAKE_BUILD_TYPE}" STREQUAL "Release" AND NO_SYCL)
+if("${CMAKE_BUILD_TYPE}" STREQUAL "Release" AND (NO_SYCL OR USE_TRISYCL))
 	include(CheckIPOSupported)
 	check_ipo_supported(RESULT IPO_SUPPORT OUTPUT error)
 
@@ -22,7 +22,7 @@ endif()
 option(ENABLE_SANITIZER "Enables address sanitizer" OFF)
 
 if(${ENABLE_SANITIZER})
-	set(SANITIZE_FLAGS "-fsanitize=address")
+	set(SANITIZE_FLAGS "-fsanitize=address,undefined,float-divide-by-zero")
 endif()
 
 if(${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")

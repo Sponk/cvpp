@@ -2,7 +2,7 @@
 file(GLOB SRC src/*.cpp)
 file(GLOB_RECURSE INCLUDE include/*.h)
 
-option(USE_TRISYCLE "Enforce the triSYCL fallback over hipSYCL or ComputeCpp if they are found." OFF)
+option(USE_TRISYCL "Enforce the triSYCL fallback over hipSYCL or ComputeCpp if they are found." OFF)
 option(USE_COMPUTECPP "Enforce the ComputeCpp hipSYCL or triSYCL." OFF)
 
 set(SYCL_FOUND FALSE)
@@ -13,6 +13,9 @@ if(NOT USE_TRISYCL AND NOT USE_COMPUTECPP)
 
 	find_package(hipSYCL CONFIG)
 	set(SYCL_FOUND ${hipSYCL_FOUND})
+
+	message("-- Using hipSYCL")
+
 elseif(NOT USE_TRISYCL AND USE_COMPUTECPP)
 	set(ComputeCpp_DIR ${CMAKE_CURRENT_SOURCE_DIR}/ComputeCpp)
 	set(SYCL_LANGUAGE_VERSION "2020")
@@ -24,7 +27,7 @@ elseif(NOT USE_TRISYCL AND USE_COMPUTECPP)
 	set(CXX_STANDARD 20)
 endif()
 
-if(NOT ${SYCL_FOUND} AND NOT ${USE_COMPUTECPP})
+if((NOT SYCL_FOUND AND NOT USE_COMPUTECPP) OR USE_TRISYCL)
 	include(FetchContent)
 	
 	message("-- Fetching triSYCL")
@@ -39,15 +42,16 @@ if(NOT ${SYCL_FOUND} AND NOT ${USE_COMPUTECPP})
 	endif()
 
 	## Fetch content seems to be broken on Apple...
-	if(APPLE)
+#	if(APPLE)
 		set(triSYCL_SOURCE_DIR ${CMAKE_BINARY_DIR}/_deps/trisycl-src)
 		include(${triSYCL_SOURCE_DIR}/cmake/FindtriSYCL.cmake)
-	else()
-		include(${triSYCL_SOURCE_DIR}/cmake/FindtriSYCL.cmake)
-	endif()
+#	else()
+#		include(${triSYCL_SOURCE_DIR}/cmake/FindtriSYCL.cmake)
+#	endif()
 
 	message("-- Fetched triSYCL: ${triSYCL_SOURCE_DIR}")
 
+	add_compile_definitions(TRISYCL=1)
 
 	#function(add_sycl_to_target T targetName)
 	#	message(${triSYCL_SOURCE_DIR}/include)

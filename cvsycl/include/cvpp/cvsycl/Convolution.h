@@ -12,7 +12,7 @@ namespace cvsycl
 template<typename A, typename B> class convolute2d_kernel;
 
 template<typename Sampler, typename T>
-Image<T> Convolute2D(Image<T>& in, const float* kernel, unsigned int size, cl::sycl::queue& queue)
+Image<T> Convolute2D(Image<T>& in, const float* kernel, int size, cl::sycl::queue& queue)
 {
 	Image<T> out(in.getWidth(), in.getHeight(), in.getComponents());
 	const int halfSize = size/2;
@@ -46,7 +46,7 @@ Image<T> Convolute2D(Image<T>& in, const float* kernel, unsigned int size, cl::s
 				outPtr[c] = cvpp::FloatToColor<T>(sumPtr[c]);
 			}
 		});
-	});
+	}).wait();
 
 	return out;
 }
@@ -106,7 +106,7 @@ Image<T> NonLinearConv2D(Image<T>& in, unsigned int size, Fn fn, Finisher fin, c
 				outPtr[c] = cvpp::FloatToColor<T>(sumPtr[c]);
 			}
 		});
-	});
+	}).wait();
 
 	return out;
 }
@@ -120,21 +120,24 @@ Image<T> NonLinearConv2D(Image<T>& in, unsigned int size, Fn fn)
 class HORIZONTAL;
 class VERTICAL;
 
-template<typename Sampler, typename Dir, typename T, typename K> class convolute1d_kernel;
+template<typename Sampler, typename Dir, typename T> class convolute1d_kernel;
 
-template<typename Sampler, typename Dir, typename T, typename K>
-Image<T> Convolute1D(Image<T>& in, const K& kernel, unsigned int size, cl::sycl::queue& queue)
+template<typename Sampler, typename Dir, typename T>
+Image<T> Convolute1D(Image<T>& in, const float* kernel, int size, cl::sycl::queue& queue)
 {
 	Image<T> out(in.getWidth(), in.getHeight(), in.getComponents());
 	const int halfSize = size/2;
 
 	using namespace cl::sycl;
 
+	auto kernelBuf = buffer<float>(kernel, cl::sycl::range<1>(size));
+
 	queue.submit([&](cl::sycl::handler& cgh) {
 		Sampler sampler(cgh, in);
 		auto outAcc = out.getBuffer()->template get_access<access::mode::discard_write>(cgh);
+		auto kernelAcc = kernelBuf.template get_access<access::mode::read, access::target::constant_buffer>(cgh);
 
-		cgh.parallel_for<convolute1d_kernel<Sampler, Dir, T, K>>(cl::sycl::range<2>(in.getWidth(), in.getHeight()), [halfSize, sampler, outAcc, kernel](cl::sycl::id<2> p)
+		cgh.parallel_for<convolute1d_kernel<Sampler, Dir, T>>(cl::sycl::range<2>(in.getWidth(), in.getHeight()), [halfSize, sampler, outAcc, kernelAcc](cl::sycl::id<2> p)
 		{
 			const size_t xoff = (sampler.getWidth()*p[1] + p[0]) * sampler.getComponents();
 			cl::sycl::float4 sum(0, 0, 0, 0);
@@ -142,22 +145,52 @@ Image<T> Convolute1D(Image<T>& in, const K& kernel, unsigned int size, cl::sycl:
 			{
 				if constexpr(std::is_same_v<Dir, HORIZONTAL>)
 				{
-					sum += kernel[k + halfSize] * sampler.sample((int) p[0] + k, (int) p[1]);
+					sum += kernelAcc[k + halfSize] * sampler.sample((int) p[0] + k, (int) p[1]);
 				}
 				else
 				{
-					sum += kernel[k + halfSize] * sampler.sample((int) p[0], (int) p[1] + k);
+					sum += kernelAcc[k + halfSize] * sampler.sample((int) p[0], (int) p[1] + k);
 				}
 			}
 
+#if 0
+			auto* outPtr = &outAcc[xoff];
+			switch(sampler.getComponents())
+			{
+			case 1:
+				outPtr[0] = cvpp::FloatToColor<T>(sum.x());
+			break;
+			
+			case 2:
+				outPtr[0] = cvpp::FloatToColor<T>(sum.x());
+				outPtr[1] = cvpp::FloatToColor<T>(sum.y());
+			break;
+			
+			case 3:
+				outPtr[0] = cvpp::FloatToColor<T>(sum.x());
+				outPtr[1] = cvpp::FloatToColor<T>(sum.y());
+				outPtr[2] = cvpp::FloatToColor<T>(sum.z());
+			break;
+		
+			case 4:
+				outPtr[0] = cvpp::FloatToColor<T>(sum.x());
+				outPtr[1] = cvpp::FloatToColor<T>(sum.y());
+				outPtr[2] = cvpp::FloatToColor<T>(sum.z());
+				outPtr[3] = cvpp::FloatToColor<T>(sum.w());
+			break;
+			}
+#endif
+
+			#if 1
 			auto* outPtr = &outAcc[xoff];
 			float* sumPtr = (float*) &sum;
 			for(int c = 0; c < sampler.getComponents(); c++)
 			{
 				outPtr[c] = cvpp::FloatToColor<T>(sumPtr[c]);
 			}
+			#endif
 		});
-	});
+	}).wait();
 
 	return out;
 }
@@ -165,34 +198,34 @@ Image<T> Convolute1D(Image<T>& in, const K& kernel, unsigned int size, cl::sycl:
 template<typename Sampler, typename Dir, typename T, int Rows, int Cols>
 Image<T> Convolute1D(Image<T>& sampler, const Eigen::Matrix<float, Rows, Cols>& kernel, cl::sycl::queue& queue)
 {
-	return Convolute1D<Sampler, Dir>(sampler, kernel, Rows, queue);
+	return Convolute1D<Sampler, Dir>(sampler, kernel.data(), Rows, queue);
 }
 
 template<typename Sampler, typename Dir, typename T>
 Image<T> Convolute1D(Image<T>& sampler, const Eigen::VectorXf& kernel, cl::sycl::queue& queue)
 {
-	return Convolute1D<Sampler, Dir>(sampler, kernel, kernel.rows(), queue);
+	return Convolute1D<Sampler, Dir>(sampler, kernel.data(), kernel.rows(), queue);
 }
 
 template<typename Sampler, typename T, typename K>
 auto ConvoluteSeparable(Image<T>& sampler, const K& kernel, unsigned int size, cl::sycl::queue& queue)
 {
-	auto r1 = Convolute1D<Sampler, HORIZONTAL>(sampler, kernel, size, queue);
-	return Convolute1D<Sampler, VERTICAL>(r1, kernel, size);
+	auto r1 = Convolute1D<Sampler, HORIZONTAL>(sampler, kernel.data(), size, queue);
+	return Convolute1D<Sampler, VERTICAL>(r1, kernel.data(), size);
 }
 
 template<typename Sampler, typename T, int Rows, int Cols>
 auto ConvoluteSeparable(Image<T>& sampler, const Eigen::Matrix<float, Rows, Cols>& kernel, cl::sycl::queue& queue)
 {
-	auto r1 = Convolute1D<Sampler, HORIZONTAL>(sampler, kernel, Rows, queue);
-	return Convolute1D<Sampler, VERTICAL>(r1, kernel, Rows, queue);
+	auto r1 = Convolute1D<Sampler, HORIZONTAL>(sampler, kernel.data(), Rows, queue);
+	return Convolute1D<Sampler, VERTICAL>(r1, kernel.data(), Rows, queue);
 }
 
 template<typename Sampler, typename T>
 auto ConvoluteSeparable(Image<T>& sampler, const Eigen::VectorXf& kernel, cl::sycl::queue& queue)
 {
-	auto r1 = Convolute1D<Sampler, HORIZONTAL>(sampler, kernel, kernel.rows(), queue);
-	return Convolute1D<Sampler, VERTICAL>(r1, kernel, kernel.rows(), queue);
+	auto r1 = Convolute1D<Sampler, HORIZONTAL>(sampler, kernel.data(), kernel.rows(), queue);
+	return Convolute1D<Sampler, VERTICAL>(r1, kernel.data(), kernel.rows(), queue);
 }
 
 }

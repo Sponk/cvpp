@@ -13,6 +13,8 @@
 
 #define TESTIMG "../test1.png"
 
+using namespace cvsycl;
+
 class kernel_name;
 
 #if 0
@@ -45,22 +47,35 @@ TEST(SYCL, Sobel)
 }
 #endif
 
-#if 0
-TEST(SYCL, StructureTensor)
+TEST(Image, Add)
 {
 	//cl::sycl::queue q(cl::sycl::gpu_selector{});
 	cl::sycl::queue q(cl::sycl::default_selector{});
 
-	cvsycl::Image<unsigned char> img("test1.png");
+	cvsycl::Image<unsigned char> img(TESTIMG);
+	auto fimage = cvsycl::ConvertType<uint8_t, float>(img, q);
+
+	fimage = fimage.add(fimage, q);
+
+	cvsycl::ConvertType<float, uint8_t>(fimage, q).save("ImageAdd.png");
+}
+
+#if 1
+TEST(Detector, StructureTensor)
+{
+	//cl::sycl::queue q(cl::sycl::gpu_selector{});
+	cl::sycl::queue q(cl::sycl::default_selector{});
+
+	cvsycl::Image<unsigned char> img(TESTIMG);
 	auto tensor = cvsycl::StructureTensor(img, q);
 	auto tensor1 = cvsycl::HessianTensor(img, q);
 
 	auto out = tensor1.transform<class MatrixDeterminantKernel>(q, [](const auto& mtx) {
-		return mtx.determinant();
+		return mtx.determinant() > 0.0f ? 1.0f : 0.0f;
 	});
 
 	auto saveImg = cvsycl::ConvertType<float, uint8_t>(out, q);
-	saveImg.save("sycl_determinant.png");
+	saveImg.save("DetectorStructureTensor.png");
 }
 #endif
 
@@ -108,7 +123,7 @@ TEST(Convolution, Conv1D)
 	auto grey = MakeGrayscale(img, q);
 
 	Eigen::Vector3f krnl;
-	krnl << -0.5, 0, 0.5;
+	krnl << -1, 0, 1;
 
 	auto out = Convolute1D<cvsycl::ClampView<uint8_t>, cvsycl::HORIZONTAL>(img, krnl, q);
 	auto out2 = Convolute1D<cvsycl::ClampView<uint8_t>, cvsycl::VERTICAL>(img, krnl, q);
@@ -200,10 +215,10 @@ TEST(Convolution, Sobel)
 	cl::sycl::queue q(cl::sycl::default_selector{});
 	cvsycl::Image<uint8_t> img(TESTIMG);
 	auto gr = MakeGrayscale(img, q);
-	gr = Convolute2D<cvsycl::ClampView<uint8_t>>(gr, cvpp::SobelFilterH(), q);
+	gr = cvsycl::Convolute2D<cvsycl::ClampView<uint8_t>>(gr, cvpp::SobelFilterH(), q);
 	gr.save("ConvolutionSobelH.png");
 
-	gr = Convolute2D<cvsycl::ClampView<uint8_t>>(gr, cvpp::SobelFilterV(), q);
+	gr = cvsycl::Convolute2D<cvsycl::ClampView<uint8_t>>(gr, cvpp::SobelFilterV(), q);
 	gr.save("ConvolutionSobelV.png");
 }
 
@@ -225,11 +240,11 @@ TEST(Convolution, Laplace)
 {
 	cl::sycl::queue q(cl::sycl::default_selector{});
 	cvsycl::Image<uint8_t> img(TESTIMG);
-	auto gr = MakeGrayscale(img, q);
+	auto gr = cvsycl::MakeGrayscale(img, q);
 
-	auto Dx = Convolute1D<cvsycl::ClampView<uint8_t>, cvsycl::HORIZONTAL>(gr, cvpp::LaplaceFilterX, q);
-	auto Dy = Convolute1D<cvsycl::ClampView<uint8_t>, cvsycl::VERTICAL>(gr, cvpp::LaplaceFilterX, q);
-	auto Dxy = Convolute2D<cvsycl::ClampView<uint8_t>>(gr, cvpp::LaplaceFilterXY(), q);
+	auto Dx = cvsycl::Convolute1D<cvsycl::ClampView<uint8_t>, cvsycl::HORIZONTAL>(gr, cvpp::LaplaceFilterX, q);
+	auto Dy = cvsycl::Convolute1D<cvsycl::ClampView<uint8_t>, cvsycl::VERTICAL>(gr, cvpp::LaplaceFilterX, q);
+	auto Dxy = cvsycl::Convolute2D<cvsycl::ClampView<uint8_t>>(gr, cvpp::LaplaceFilterXY(), q);
 
 	Dx.save("ConvolutionLaplaceX.png");
 	Dy.save("ConvolutionLaplaceY.png");

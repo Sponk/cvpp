@@ -23,6 +23,15 @@ Image<Eigen::Matrix2f> StructureTensor(Image<T>& in, cl::sycl::queue& q)
 	auto Sy = Dy.mul(Dy, q);
 	auto Sxy = Dx.mul(Dy, q);
 
+	#if 0
+	ConvertType<float, uint8_t>(Dx, q).save("StructureTensorDebug_Dx.png");
+	ConvertType<float, uint8_t>(Dy, q).save("StructureTensorDebug_Dy.png");
+
+	ConvertType<float, uint8_t>(Sx, q).save("StructureTensorDebug_Sx.png");
+	ConvertType<float, uint8_t>(Sy, q).save("StructureTensorDebug_Sy.png");
+	ConvertType<float, uint8_t>(Sxy, q).save("StructureTensorDebug_Sxy.png");
+	#endif
+
 	Sx = ConvoluteSeparable<ClampView<float>>(Sx, cvpp::GaussFilter<3>(1.0f), q);
 	Sy = ConvoluteSeparable<ClampView<float>>(Sy, cvpp::GaussFilter<3>(1.0f), q);
 	Sxy = ConvoluteSeparable<ClampView<float>>(Sxy, cvpp::GaussFilter<3>(1.0f), q);
@@ -41,7 +50,7 @@ Image<Eigen::Matrix2f> StructureTensor(Image<T>& in, cl::sycl::queue& q)
 			outAcc[off] <<	cvpp::ColorToFloat(SxAcc[off]), cvpp::ColorToFloat(SxyAcc[off]),
 							cvpp::ColorToFloat(SxyAcc[off]), cvpp::ColorToFloat(SyAcc[off]);
 		});
-	});
+	}).wait();
 
 	return output;
 }
@@ -74,7 +83,7 @@ Image<Eigen::Matrix2f> HessianTensor(Image<T>& in, cl::sycl::queue& q)
 			outAcc[off] <<	cvpp::ColorToFloat(DxAcc[off]), cvpp::ColorToFloat(DxyAcc[off]),
 							cvpp::ColorToFloat(DyxAcc[off]), cvpp::ColorToFloat(DyAcc[off]);
 		});
-	});
+	}).wait();
 
 	return output;
 }
