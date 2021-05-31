@@ -104,6 +104,52 @@ if(${SYCL_FOUND})
 		endif()
 	endif()
 
+	if(SWIG_FOUND)
+
+		## SYCL
+		set_property(SOURCE src/swig/cvsyclLua.i PROPERTY CPLUSPLUS ON)
+		set_property(SOURCE src/swig/cvsyclLua.i PROPERTY USE_TARGET_INCLUDE_DIRECTORIES ON)
+
+		swig_add_library(cvsyclLua
+			TYPE MODULE
+			LANGUAGE lua
+			SOURCES src/swig/cvsyclLua.i
+		)
+
+		target_link_libraries(cvsyclLua PUBLIC cvsycl)
+		set_property(TARGET cvsyclLua PROPERTY POSITION_INDEPENDENT_CODE ON)
+
+		if(NOT USE_TRISYCL)
+			add_sycl_to_target(TARGET cvsyclLua)
+		else()
+			add_sycl_to_target(cvsyclLua)
+		endif()
+
+		## Python
+		find_package(Python3 COMPONENTS Development)
+		if(Python3_Development_FOUND)
+			set_property(SOURCE src/swig/cvsyclPython.i PROPERTY CPLUSPLUS ON)
+			set_property(SOURCE src/swig/cvsyclPython.i PROPERTY USE_TARGET_INCLUDE_DIRECTORIES ON)
+
+			swig_add_library(cvsyclPy
+				LANGUAGE python
+				SOURCES src/swig/cvsyclPython.i
+			)
+
+			set_property(TARGET cvsyclPy PROPERTY SWIG_COMPILE_OPTIONS -doxygen)
+
+			target_link_libraries(cvsyclPy PUBLIC cvsycl Python3::Module)
+			set_property(TARGET cvsyclPy PROPERTY POSITION_INDEPENDENT_CODE ON)
+
+			if(NOT USE_TRISYCL)
+				add_sycl_to_target(TARGET cvsyclPy)
+			else()
+				add_sycl_to_target(cvsyclPy)
+			endif()
+		endif()
+
+		set_property(TARGET cvsycl PROPERTY POSITION_INDEPENDENT_CODE ON)
+	endif()
 else()
 	message("-- Disabling SYCL backend")
 endif()

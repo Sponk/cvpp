@@ -52,18 +52,38 @@ To ColorToColor(const From& v)
 	return FloatToColor<To>(ColorToFloat<From>(v));
 }
 
+enum IMAGE_TYPE
+{
+	UCHAR,
+	USHORT,
+	FLOAT,
+	OTHER
+};
+
+template<typename T>
+static IMAGE_TYPE getImageType()
+{
+	if constexpr(std::is_same_v<T, uint8_t>)
+		return UCHAR;
+	else if constexpr(std::is_same_v<T, uint16_t>)
+		return USHORT;
+	else if constexpr(std::is_same_v<T, float>)
+		return FLOAT;
+	else
+		return OTHER;
+}
+
 class Image
 {
 public:
+	virtual ~Image() = default;
+	virtual IMAGE_TYPE getType() const = 0;
 
-	enum
-	{
-		UCHAR,
-		USHORT,
-		FLOAT,
-		OTHER
-	};
-
+	virtual unsigned int getWidth() const = 0;
+	virtual unsigned int getHeight() const = 0;
+	virtual unsigned int getComponents() const = 0;
+	virtual void save(const std::string& outfile) = 0;
+	virtual void load(const std::string& infile) = 0;
 };
 
 template<typename T>
@@ -78,6 +98,8 @@ public:
 	CPUImage<T>& operator=(const CPUImage<T>&) = default;
 	CPUImage<T>& operator=(CPUImage<T>&&) = default;
 
+	cvpp::IMAGE_TYPE getType() const override { return cvpp::getImageType<T>(); }
+
 	CPUImage(const std::string& path)
 	{
 		load(path);
@@ -91,7 +113,7 @@ public:
 		m_data.resize(w*h*c);
 	}
 
-	void load(const std::string& path)
+	void load(const std::string& path) override
 	{
 		if constexpr(std::is_same<T, float>::value)
 		{
@@ -107,7 +129,7 @@ public:
 		}
 	}
 	
-	void save(const std::string& path)
+	void save(const std::string& path) override
 	{
 		if constexpr(std::is_same<T, float>::value)
 		{
@@ -126,9 +148,9 @@ public:
 	const std::vector<T>& getData() const { return m_data; }
 	std::vector<T>& getData() { return m_data; }
 
-	unsigned int getWidth() const { return m_width; }
-	unsigned int getHeight() const { return m_height; }
-	unsigned int getComponents() const { return m_components; }
+	unsigned int getWidth() const override { return m_width; }
+	unsigned int getHeight() const override { return m_height; }
+	unsigned int getComponents() const override { return m_components; }
 
 	T const* get(unsigned int x, unsigned int y) const
 	{
@@ -205,6 +227,7 @@ public:
 		return out;
 	}
 
+#ifndef SWIG
 	CPUImage<T> operator-() const
 	{
 		static_assert(std::is_signed_v<T>, "Negative values are undefined for this image!");
@@ -218,7 +241,9 @@ public:
 
 		return out;
 	}
+#endif
 
+#ifndef SWIG
 	template<typename Fn>
 	auto transform(Fn&& fn) const
 	{
@@ -231,6 +256,7 @@ public:
 
 		return result;
 	}
+#endif
 
 private:
 	unsigned int m_width = 0, m_height = 0;

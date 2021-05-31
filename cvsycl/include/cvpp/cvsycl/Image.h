@@ -9,7 +9,7 @@ namespace cvsycl
 {
 
 template<typename T>
-class Image
+class Image : public cvpp::Image
 {
 public:
 	Image(unsigned int w, unsigned int h, unsigned int c):
@@ -67,7 +67,12 @@ public:
 		return out;
 	}
 
-	void save(const std::string& path)
+	void load(const std::string& path) override
+	{
+		*this = cvsycl::Image<T>(path);
+	}
+
+	void save(const std::string& path) override
 	{
 		auto acc = m_data.template get_access<cl::sycl::access::mode::read>();
 		std::vector<T> buf(acc.get_count());
@@ -92,9 +97,11 @@ public:
 	const cl::sycl::buffer<T>* getBuffer() const { return &m_data; }
 	cl::sycl::buffer<T>* getBuffer() { return &m_data; }
 
-	unsigned int getWidth() const { return m_width; }
-	unsigned int getHeight() const { return m_height; }
-	unsigned int getComponents() const { return m_components; }
+	unsigned int getWidth() const override { return m_width; }
+	unsigned int getHeight() const override { return m_height; }
+	unsigned int getComponents() const override { return m_components; }
+
+	cvpp::IMAGE_TYPE getType() const override { return cvpp::getImageType<T>(); }
 
 	#define MAKE_OPERATOR(name, op)                                                                                                            \
 		template <typename S, typename Q>                                                                                                      \
@@ -125,6 +132,7 @@ public:
 		MAKE_OPERATOR(div, /)
 	#undef MAKE_OPERATOR
 
+#ifndef SWIG
 	template<typename S> class neg_kernel;
 	Image<T> neg(cl::sycl::queue& q)
 	{
@@ -145,7 +153,9 @@ public:
 
 		return out;
 	}
+#endif
 
+#ifndef SWIG
 	template<typename KernelName, typename Fn>
 	auto transform(cl::sycl::queue& q, Fn&& fn)
 	{
@@ -163,6 +173,7 @@ public:
 
 		return result;
 	}
+#endif
 
 private:
 	cl::sycl::buffer<T> m_data;

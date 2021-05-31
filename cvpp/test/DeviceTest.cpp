@@ -245,5 +245,5 @@ TEST(Convolution, Laplace)
 
 TEST(Device, CPU)
 {
-	
+	cvpp::CPUDevice device;
 }
